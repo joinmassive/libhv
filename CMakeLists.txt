@@ -131,12 +131,7 @@ endif()
 
 if(WITH_OPENSSL)
     add_definitions(-DWITH_OPENSSL)
-    find_package(OpenSSL)
-    if(OpenSSL_FOUND)
-        set(LIBS ${LIBS} OpenSSL::SSL OpenSSL::Crypto)
-    else()
-        set(LIBS ${LIBS} ssl crypto)
-    endif()
+    set(LIBS ${LIBS} CONAN_PKG::openssl)
 endif()
 
 if(WITH_GNUTLS)
