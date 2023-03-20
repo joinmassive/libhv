@@ -32,7 +32,7 @@ public:
     int send(const char* buf, int len, int fragment, enum ws_opcode opcode = WS_OPCODE_BINARY);
 
     int sendPing();
-    int sendPong();
+    int sendPong(const std::string& msg = {});
 
     int close() {
         return SocketChannel::close(type == WS_SERVER);
