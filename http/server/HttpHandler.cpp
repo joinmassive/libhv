@@ -136,9 +136,9 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
             break;
         }
     };
+    // NOTE: cancel keepalive timer, judge alive by heartbeat.
+    ws_channel->setKeepaliveTimeout(0);
     if (ws_service && ws_service->ping_interval > 0) {
-        // NOTE: cancel keepalive timer, judge alive by heartbeat.
-        ws_channel->setKeepaliveTimeout(0);
         int ping_interval = MAX(ws_service->ping_interval, 1000);
         ws_channel->setHeartbeat(ping_interval, [this](){
             if (last_recv_pong_time < last_send_ping_time) {
@@ -357,12 +357,12 @@ processor:
 postprocessor:
     if (status_code >= 100 && status_code < 600) {
         pResp->status_code = (http_status)status_code;
-    }
-    if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
-        if (service->errorHandler) {
-            customHttpHandler(service->errorHandler);
-        } else {
-            defaultErrorHandler();
+        if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
+            if (service->errorHandler) {
+                customHttpHandler(service->errorHandler);
+            } else {
+                defaultErrorHandler();
+            }
         }
     }
     if (fc) {
