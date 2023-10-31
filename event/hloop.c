@@ -137,13 +137,13 @@ static int hloop_process_pendings(hloop_t* loop) {
 }
 
 // hloop_process_ios -> hloop_process_timers -> hloop_process_idles -> hloop_process_pendings
-static int hloop_process_events(hloop_t* loop) {
+int hloop_process_events(hloop_t* loop, int timeout_ms) {
     // ios -> timers -> idles
     int nios, ntimers, nidles;
     nios = ntimers = nidles = 0;
 
     // calc blocktime
-    int32_t blocktime_ms = HLOOP_MAX_BLOCK_TIME;
+    int32_t blocktime_ms = timeout_ms;
     if (loop->ntimers) {
         hloop_update_time(loop);
         int64_t blocktime_us = blocktime_ms * 1000;
@@ -155,9 +155,9 @@ static int hloop_process_events(hloop_t* loop) {
             int64_t min_timeout = TIMER_ENTRY(loop->realtimers.root)->next_timeout - hloop_now_us(loop);
             blocktime_us = MIN(blocktime_us, min_timeout);
         }
-        if (blocktime_us <= 0) goto process_timers;
+        if (blocktime_us < 0) goto process_timers;
         blocktime_ms = blocktime_us / 1000 + 1;
-        blocktime_ms = MIN(blocktime_ms, HLOOP_MAX_BLOCK_TIME);
+        blocktime_ms = MIN(blocktime_ms, timeout_ms);
     }
 
     if (loop->nios) {
@@ -455,7 +455,7 @@ int hloop_run(hloop_t* loop) {
             loop->nactives <= loop->intern_nevents) {
             break;
         }
-        hloop_process_events(loop);
+        hloop_process_events(loop, HLOOP_MAX_BLOCK_TIME);
         if (loop->flags & HLOOP_FLAG_RUN_ONCE) {
             break;
         }
