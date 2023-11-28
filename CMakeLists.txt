@@ -131,7 +131,9 @@ endif()
 
 if(WITH_OPENSSL)
     add_definitions(-DWITH_OPENSSL)
-    set(LIBS ${LIBS} CONAN_PKG::openssl)
+    set(CONAN_PACKAGES openssl)
+    find_required_packages("${CONAN_PACKAGES}")
+    set(LIBS ${LIBS} openssl::openssl)
 endif()
 
 if(WITH_GNUTLS)
