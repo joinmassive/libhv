@@ -13,6 +13,7 @@ WebSocketClient::WebSocketClient(EventLoopPtr loop)
     state = WS_CLOSED;
     ping_interval = DEFAULT_WS_PING_INTERVAL;
     ping_cnt = 0;
+    delegate_reconn_reset = true;
 }
 
 WebSocketClient::~WebSocketClient() {
@@ -180,6 +181,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                         channel->sendPing();
                     });
                 }
+                reconn_setting_reset(reconn_setting);
                 if (onopen) onopen();
             }
         }
