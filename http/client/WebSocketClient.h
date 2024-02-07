@@ -35,28 +35,27 @@ public:
     int send(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY);
 
     // setConnectTimeout / setPingInterval / setReconnect
-    void setPingInterval(int ms) {
-        ping_interval = ms;
-    }
+    void setPingInterval(int ms) { ping_interval = ms; }
 
     // NOTE: call before open
-    void setHttpRequest(const HttpRequestPtr& req) {
-        http_req_ = req;
-    }
+    void setHttpRequest(const HttpRequestPtr& req) { http_req_ = req; }
 
     // NOTE: call when onopen
-    const HttpResponsePtr& getHttpResponse() {
-        return http_resp_;
-    }
+    const HttpResponsePtr& getHttpResponse() { return http_resp_; }
 
-private:
     enum State {
         CONNECTING,
         CONNECTED,
         WS_UPGRADING,
         WS_OPENED,
         WS_CLOSED,
-    } state;
+        WS_REJECTED,
+    };
+
+    State getState() { return state; }
+
+private:
+    State state;
     HttpParserPtr       http_parser_;
     HttpRequestPtr      http_req_;
     HttpResponsePtr     http_resp_;
