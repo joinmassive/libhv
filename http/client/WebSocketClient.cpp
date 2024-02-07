@@ -125,6 +125,13 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                             return;
                         }
                     }
+                    else if (http_resp_->status_code == HTTP_STATUS_FORBIDDEN) {
+                        hloge("upgrade to websocket rejected by server: status_code=%d", http_resp_->status_code);
+                        state = WS_REJECTED;
+                        setReconnect(NULL);
+                        channel->close();
+                        return;
+                    }
                     hloge("server side could not upgrade to websocket: status_code=%d", http_resp_->status_code);
                     channel->close();
                     return;
