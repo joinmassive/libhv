@@ -13,6 +13,7 @@ WebSocketClient::WebSocketClient(EventLoopPtr loop)
     state = WS_CLOSED;
     ping_interval = DEFAULT_WS_PING_INTERVAL;
     ping_cnt = 0;
+    delegate_reconn_reset = true;
 }
 
 WebSocketClient::~WebSocketClient() {
@@ -124,6 +125,13 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                             return;
                         }
                     }
+                    else if (http_resp_->status_code == HTTP_STATUS_FORBIDDEN) {
+                        hloge("upgrade to websocket rejected by server: status_code=%d", http_resp_->status_code);
+                        state = WS_REJECTED;
+                        setReconnect(NULL);
+                        channel->close();
+                        return;
+                    }
                     hloge("server side could not upgrade to websocket: status_code=%d", http_resp_->status_code);
                     channel->close();
                     return;
@@ -180,6 +188,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                         channel->sendPing();
                     });
                 }
+                reconn_setting_reset(reconn_setting);
                 if (onopen) onopen();
             }
         }

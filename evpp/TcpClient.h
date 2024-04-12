@@ -21,6 +21,7 @@ public:
         connect_timeout = HIO_DEFAULT_CONNECT_TIMEOUT;
         tls = false;
         tls_setting = NULL;
+        delegate_reconn_reset = false;
         reconn_setting = NULL;
         unpack_setting = NULL;
     }
@@ -33,6 +34,13 @@ public:
 
     const EventLoopPtr& loop() {
         return loop_;
+    }
+
+    // delete thread-safe
+    void deleteInLoop() {
+        loop_->runInLoop([this](){
+            delete this;
+        });
     }
 
     // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
@@ -86,7 +94,7 @@ public:
 
     // closesocket thread-safe
     void closesocket() {
-        if (channel) {
+        if (channel && channel->status != SocketChannel::CLOSED) {
             loop_->runInLoop([this](){
                 if (channel) {
                     setReconnect(NULL);
@@ -128,12 +136,12 @@ public:
             if (unpack_setting) {
                 channel->setUnpack(unpack_setting);
             }
+            if (!delegate_reconn_reset && reconn_setting) {
+                reconn_setting_reset(reconn_setting);
+            }
             channel->startRead();
             if (onConnection) {
                 onConnection(channel);
-            }
-            if (reconn_setting) {
-                reconn_setting_reset(reconn_setting);
             }
         };
         channel->onread = [this](Buffer* buf) {
@@ -241,6 +249,7 @@ public:
     int                     connect_timeout;
     bool                    tls;
     hssl_ctx_opt_t*         tls_setting;
+    bool                    delegate_reconn_reset;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;
 

@@ -55,10 +55,10 @@ int WebSocketChannel::sendPing() {
     return write(WS_SERVER_PING_FRAME, WS_SERVER_MIN_FRAME_SIZE);
 }
 
-int WebSocketChannel::sendPong() {
+int WebSocketChannel::sendPong(const std::string &msg) {
     std::lock_guard<std::mutex> locker(mutex_);
     if (type == WS_CLIENT) {
-        return write(WS_CLIENT_PONG_FRAME, WS_CLIENT_MIN_FRAME_SIZE);
+        return sendFrame(msg.data(), msg.size(), WS_OPCODE_PONG);
     }
     return write(WS_SERVER_PONG_FRAME, WS_SERVER_MIN_FRAME_SIZE);
 }
