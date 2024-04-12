@@ -5,6 +5,7 @@
  * @server  bin/websocket_server_test 8888
  * @client  bin/websocket_client_test ws://127.0.0.1:8888/test
  * @clients bin/websocket_client_test ws://127.0.0.1:8888/test 100
+ * @python  scripts/websocket_server.py
  * @js      html/websocket_client.html
  *
  */
@@ -33,6 +34,9 @@ public:
             printf("onclose\n");
         };
 
+        // ping
+        setPingInterval(10000);
+
         // reconnect: 1,2,4,8,10,10,10...
         reconn_setting_t reconn;
         reconn_setting_init(&reconn);
@@ -42,7 +46,7 @@ public:
         setReconnect(&reconn);
 
         /*
-        HttpRequestPtr req = std::make_shared<HttpRequest>();
+        auto req = std::make_shared<HttpRequest>();
         req->method = HTTP_POST;
         req->headers["Origin"] = "http://example.com";
         req->json["app_id"] = "123456";
@@ -59,7 +63,7 @@ public:
 typedef std::shared_ptr<MyWebSocketClient> MyWebSocketClientPtr;
 
 int TestMultiClientsRunInOneEventLoop(const char* url, int nclients) {
-    EventLoopThreadPtr loop_thread(new EventLoopThread);
+    auto loop_thread = std::make_shared<EventLoopThread>();
     loop_thread->start();
 
     std::map<int, MyWebSocketClientPtr> clients;

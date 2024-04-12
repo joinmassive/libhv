@@ -107,6 +107,7 @@
 - hv_strstartswith
 - hv_strendswith
 - hv_strcontains
+- hv_wildcard_match
 - hv_strnchr
 - hv_strrchr_dot
 - hv_strrchr_dir
@@ -227,8 +228,14 @@
 - tcp_nopush
 - tcp_keepalive
 - udp_broadcast
+- ip_v6only
 - so_sndtimeo
 - so_rcvtimeo
+- so_sndbuf
+- so_rcvbuf
+- so_reuseaddr
+- so_reuseport
+- so_linger
 
 ### hlog.h
 - default_logger

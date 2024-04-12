@@ -269,6 +269,7 @@ public:
 
     bool IsChunked();
     bool IsKeepAlive();
+    bool IsUpgrade();
 
     // headers
     void SetHeader(const char* key, const std::string& value);
@@ -391,10 +392,11 @@ public:
     // for HttpClient
     uint16_t            timeout;        // unit: s
     uint16_t            connect_timeout;// unit: s
-    uint32_t            retry_count;    // just for AsyncHttpClient fail retry
-    uint32_t            retry_delay;    // just for AsyncHttpClient fail retry
+    uint32_t            retry_count;
+    uint32_t            retry_delay;    // unit: ms
     unsigned            redirect: 1;
     unsigned            proxy   : 1;
+    unsigned            cancel  : 1;
 
     HttpRequest();
 
@@ -471,6 +473,8 @@ public:
         retry_count = count;
         retry_delay = delay;
     }
+    void Cancel() { cancel = 1; }
+    bool IsCanceled() { return cancel == 1; }
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1);

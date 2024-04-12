@@ -5,7 +5,11 @@
 #include "hplatform.h"
 
 #ifdef ENABLE_UDS
+#ifdef OS_WIN
+    #include <afunix.h> // import struct sockaddr_un
+#else
     #include <sys/un.h> // import struct sockaddr_un
+#endif
 #endif
 
 #ifdef _MSC_VER
@@ -41,10 +45,6 @@ HV_INLINE int nonblocking(int sockfd) {
     unsigned long nb = 1;
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
-
-#ifndef poll
-#define poll        WSAPoll
-#endif
 
 #undef  EAGAIN
 #define EAGAIN      WSAEWOULDBLOCK
@@ -192,6 +192,14 @@ HV_INLINE int tcp_keepalive(int sockfd, int on DEFAULT(1), int delay DEFAULT(60)
 
 HV_INLINE int udp_broadcast(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(int));
+}
+
+HV_INLINE int ip_v6only(int sockfd, int on DEFAULT(1)) {
+#ifdef IPV6_V6ONLY
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(int));
+#else
+    return 0;
+#endif
 }
 
 // send timeout

@@ -33,7 +33,7 @@ void* hv_malloc(size_t size) {
 
 void* hv_realloc(void* oldptr, size_t newsize, size_t oldsize) {
     hatomic_inc(&s_alloc_cnt);
-    hatomic_inc(&s_free_cnt);
+    if (oldptr) hatomic_inc(&s_free_cnt);
     void* ptr = realloc(oldptr, newsize);
     if (!ptr) {
         fprintf(stderr, "realloc failed!\n");
@@ -165,6 +165,24 @@ bool hv_strendswith(const char* str, const char* end) {
 bool hv_strcontains(const char* str, const char* sub) {
     assert(str != NULL && sub != NULL);
     return strstr(str, sub) != NULL;
+}
+
+bool hv_wildcard_match(const char* str, const char* pattern) {
+    assert(str != NULL && pattern != NULL);
+    bool match = false;
+    while (*str && *pattern) {
+        if (*pattern == '*') {
+            match = hv_strendswith(str, pattern + 1);
+            break;
+        } else if (*str != *pattern) {
+            match = false;
+            break;
+        } else {
+            ++str;
+            ++pattern;
+        }
+    }
+    return match ? match : (*str == '\0' && *pattern == '\0');
 }
 
 char* hv_strnchr(const char* s, char c, size_t n) {

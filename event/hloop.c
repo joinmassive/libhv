@@ -193,7 +193,9 @@ static void hloop_stat_timer_cb(htimer_t* timer) {
     hloop_t* loop = timer->loop;
     // hlog_set_level(LOG_LEVEL_DEBUG);
     hlogd("[loop] pid=%ld tid=%ld uptime=%lluus cnt=%llu nactives=%u nios=%u ntimers=%u nidles=%u",
-        loop->pid, loop->tid, loop->cur_hrtime - loop->start_hrtime, loop->loop_cnt,
+        loop->pid, loop->tid,
+        (unsigned long long)loop->cur_hrtime - loop->start_hrtime,
+        (unsigned long long)loop->loop_cnt,
         loop->nactives, loop->nios, loop->ntimers, loop->nidles);
 }
 
@@ -247,7 +249,7 @@ static int hloop_create_eventfds(hloop_t* loop) {
         return -1;
     }
 #endif
-    hio_t* io = hread(loop, loop->eventfds[EVENTFDS_READ_INDEX], loop->readbuf.base, loop->readbuf.len, eventfd_read_cb);
+    hio_t* io = hread(loop, loop->eventfds[EVENTFDS_READ_INDEX], NULL, 0, eventfd_read_cb);
     io->priority = HEVENT_HIGH_PRIORITY;
     ++loop->intern_nevents;
     return 0;
@@ -298,6 +300,9 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
         hloge("hloop_post_event failed!");
         goto unlock;
     }
+    if (loop->custom_events.maxsize == 0) {
+        event_queue_init(&loop->custom_events, CUSTOM_EVENT_QUEUE_INIT_SIZE);
+    }
     event_queue_push_back(&loop->custom_events, ev);
 unlock:
     hmutex_unlock(&loop->custom_events_mutex);
@@ -324,18 +329,19 @@ static void hloop_init(hloop_t* loop) {
     heap_init(&loop->realtimers, timers_compare);
 
     // ios
-    io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
+    // NOTE: io_array_init when hio_get -> io_array_resize
+    // io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
 
     // readbuf
-    loop->readbuf.len = HLOOP_READ_BUFSIZE;
-    HV_ALLOC(loop->readbuf.base, loop->readbuf.len);
+    // NOTE: alloc readbuf when hio_use_loop_readbuf
+    // loop->readbuf.len = HLOOP_READ_BUFSIZE;
+    // HV_ALLOC(loop->readbuf.base, loop->readbuf.len);
 
-    // iowatcher
-    iowatcher_init(loop);
+    // NOTE: iowatcher_init when hio_add -> iowatcher_add_event
+    // iowatcher_init(loop);
 
     // custom_events
     hmutex_init(&loop->custom_events_mutex);
-    event_queue_init(&loop->custom_events, CUSTOM_EVENT_QUEUE_INIT_SIZE);
     // NOTE: hloop_create_eventfds when hloop_post_event or hloop_run
     loop->eventfds[0] = loop->eventfds[1] = -1;
 
@@ -703,13 +709,17 @@ const char* hio_engine() {
 #endif
 }
 
-hio_t* hio_get(hloop_t* loop, int fd) {
+static inline hio_t* __hio_get(hloop_t* loop, int fd) {
     if (fd >= loop->ios.maxsize) {
         int newsize = ceil2e(fd);
+        newsize = MAX(newsize, IO_ARRAY_INIT_SIZE);
         io_array_resize(&loop->ios, newsize > fd ? newsize : 2*fd);
     }
+    return loop->ios.ptr[fd];
+}
 
-    hio_t* io = loop->ios.ptr[fd];
+hio_t* hio_get(hloop_t* loop, int fd) {
+    hio_t* io = __hio_get(loop, fd);
     if (io == NULL) {
         HV_ALLOC_SIZEOF(io);
         hio_init(io);
@@ -735,22 +745,16 @@ void hio_detach(hio_t* io) {
 
 void hio_attach(hloop_t* loop, hio_t* io) {
     int fd = io->fd;
-    if (fd >= loop->ios.maxsize) {
-        int newsize = ceil2e(fd);
-        io_array_resize(&loop->ios, newsize > fd ? newsize : 2*fd);
-    }
-
     // NOTE: hio was not freed for reused when closed, but attached hio can't be reused,
     // so we need to free it if fd exists to avoid memory leak.
-    hio_t* preio = loop->ios.ptr[fd];
+    hio_t* preio = __hio_get(loop, fd);
     if (preio != NULL && preio != io) {
         hio_free(preio);
     }
 
     io->loop = loop;
     // NOTE: use new_loop readbuf
-    io->readbuf.base = loop->readbuf.base;
-    io->readbuf.len = loop->readbuf.len;
+    hio_use_loop_readbuf(io);
     loop->ios.ptr[fd] = io;
 }
 
@@ -945,6 +949,9 @@ hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e t
         so_reuseaddr(sockfd, 1);
         // so_reuseport(sockfd, 1);
 #endif
+        if (addr.sa.sa_family == AF_INET6) {
+            ip_v6only(sockfd, 0);
+        }
         if (bind(sockfd, &addr.sa, sockaddr_len(&addr)) < 0) {
             perror("bind");
             closesocket(sockfd);

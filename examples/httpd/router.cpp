@@ -1,12 +1,14 @@
 #include "router.h"
 
 #include "handler.h"
-#include "hthread.h"
+#include "hthread.h"    // import hv_gettid
 #include "hasync.h"     // import hv::async
 #include "requests.h"   // import requests::async
 
 void Router::Register(hv::HttpService& router) {
-    // preprocessor => middleware -> handlers => postprocessor
+    /* handler chain */
+    // preprocessor -> middleware -> processor -> postprocessor
+    // processor: pathHandlers -> staticHandler -> errorHandler
     router.preprocessor = Handler::preprocessor;
     router.postprocessor = Handler::postprocessor;
     // router.errorHandler = Handler::errorHandler;
@@ -36,15 +38,6 @@ void Router::Register(hv::HttpService& router) {
         return resp->Json(router.Paths());
     });
 
-    // curl -v http://ip:port/get?env=1
-    router.GET("/get", [](HttpRequest* req, HttpResponse* resp) {
-        resp->json["origin"] = req->client_addr.ip;
-        resp->json["url"] = req->url;
-        resp->json["args"] = req->query_params;
-        resp->json["headers"] = req->headers;
-        return 200;
-    });
-
     // curl -v http://ip:port/service
     router.GET("/service", [](const HttpContextPtr& ctx) {
         ctx->setContentType("application/json");
@@ -54,6 +47,16 @@ void Router::Register(hv::HttpService& router) {
         ctx->set("error_page", ctx->service->error_page);
         ctx->set("index_of", ctx->service->index_of);
         return 200;
+    });
+
+    // curl -v http://ip:port/get?env=1
+    router.GET("/get", [](const HttpContextPtr& ctx) {
+        hv::Json resp;
+        resp["origin"] = ctx->ip();
+        resp["url"] = ctx->url();
+        resp["args"] = ctx->params();
+        resp["headers"] = ctx->headers();
+        return ctx->send(resp.dump(2));
     });
 
     // curl -v http://ip:port/echo -d "hello,world!"
@@ -80,7 +83,7 @@ void Router::Register(hv::HttpService& router) {
     // curl -v http://ip:port/www.*
     // curl -v http://ip:port/www.example.com
     router.GET("/www.*", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-        HttpRequestPtr req2(new HttpRequest);
+        auto req2 = std::make_shared<HttpRequest>();
         req2->url = req->path.substr(1);
         requests::async(req2, [writer](const HttpResponsePtr& resp2){
             writer->Begin();
