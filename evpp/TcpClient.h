@@ -170,6 +170,8 @@ public:
         if (!reconn_setting) return -1;
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
+        // Add a random delay between 1s and 10s to avoid many clients reconnecting at the same time.
+        delay += rand() % 9000 + 1000;
         hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
         loop_->setTimeout(delay, [this](TimerID timerID){
             startConnect();
