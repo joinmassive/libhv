@@ -88,8 +88,8 @@ public:
 
     // Timer interfaces: setTimer, killTimer, resetTimer
     TimerID setTimer(int timeout_ms, TimerCallback cb, uint32_t repeat = INFINITE, TimerID timerID = INVALID_TIMER_ID) {
-        assertInLoopThread();
         if (loop_ == NULL) return INVALID_TIMER_ID;
+        assertInLoopThread();
         htimer_t* htimer = htimer_add(loop_, onTimer, timeout_ms, repeat);
         assert(htimer != NULL);
         if (timerID == INVALID_TIMER_ID) {
@@ -241,7 +241,7 @@ typedef std::shared_ptr<EventLoop> EventLoopPtr;
 static inline EventLoop* tlsEventLoop() {
     return (EventLoop*)ThreadLocalStorage::get(ThreadLocalStorage::EVENT_LOOP);
 }
-#define currentThreadEventLoop tlsEventLoop()
+#define currentThreadEventLoop ::hv::tlsEventLoop()
 
 static inline TimerID setTimer(int timeout_ms, TimerCallback cb, uint32_t repeat = INFINITE) {
     EventLoop* loop = tlsEventLoop();

@@ -466,6 +466,12 @@ const HttpCookie& HttpMessage::GetCookie(const std::string& name) {
         if (iter->name == name) {
             return *iter;
         }
+        auto kv_iter = iter->kv.find(name);
+        if (kv_iter != iter->kv.end()) {
+            iter->name = name;
+            iter->value = kv_iter->second;
+            return *iter;
+        }
     }
     return NoCookie;
 }
@@ -489,6 +495,7 @@ void HttpMessage::DumpHeaders(std::string& str) {
             // %s: %s\r\n
             str += header.first;
             str += ": ";
+            // fix CVE-2023-26148
             // if the value has \r\n, translate to \\r\\n
             if (header.second.find("\r") != std::string::npos ||
                 header.second.find("\n") != std::string::npos) {

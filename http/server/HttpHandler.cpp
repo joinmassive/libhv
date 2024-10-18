@@ -153,10 +153,11 @@ void HttpHandler::Close() {
 }
 
 bool HttpHandler::SwitchHTTP2() {
-    parser.reset(HttpParser::New(HTTP_SERVER, ::HTTP_V2));
-    if (parser == NULL) {
+    HttpParser* http2_parser = HttpParser::New(HTTP_SERVER, ::HTTP_V2);
+    if (http2_parser == NULL) {
         return false;
     }
+    parser.reset(http2_parser);
     protocol = HTTP_V2;
     resp->http_major = req->http_major = 2;
     resp->http_minor = req->http_minor = 0;
@@ -174,6 +175,7 @@ bool HttpHandler::SwitchWebSocket() {
         ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {
         case WS_OPCODE_CLOSE:
+            ws_channel->send(msg, WS_OPCODE_CLOSE);
             ws_channel->close();
             break;
         case WS_OPCODE_PING:
@@ -249,7 +251,11 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
 
 void HttpHandler::onHeadersComplete() {
     // printf("onHeadersComplete\n");
-    handleRequestHeaders();
+    int status_code = handleRequestHeaders();
+    if (status_code != HTTP_STATUS_OK) {
+        error = ERR_REQUEST;
+        return;
+    }
 
     HttpRequest* pReq = req.get();
     if (service && service->pathHandlers.size() != 0) {
@@ -333,7 +339,7 @@ void HttpHandler::onMessageComplete() {
     }
 }
 
-void HttpHandler::handleRequestHeaders() {
+int HttpHandler::handleRequestHeaders() {
     HttpRequest* pReq = req.get();
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
@@ -361,6 +367,16 @@ void HttpHandler::handleRequestHeaders() {
 
     // printf("url=%s\n", pReq->url.c_str());
     pReq->ParseUrl();
+    // printf("path=%s\n",  pReq->path.c_str());
+    // fix CVE-2023-26147
+    if (pReq->path.find("%") != std::string::npos) {
+        std::string unescaped_path = HUrl::unescape(pReq->path);
+        if (unescaped_path.find("\r\n") != std::string::npos) {
+            hlogw("Illegal path: %s\n",  unescaped_path.c_str());
+            resp->status_code = HTTP_STATUS_BAD_REQUEST;
+            return resp->status_code;
+        }
+    }
 
     if (proxy) {
         // Proxy-Connection
@@ -388,6 +404,7 @@ void HttpHandler::handleRequestHeaders() {
     }
 
     // TODO: rewrite url
+    return HTTP_STATUS_OK;
 }
 
 void HttpHandler::handleExpect100() {
@@ -402,11 +419,7 @@ void HttpHandler::handleExpect100() {
 void HttpHandler::addResponseHeaders() {
     HttpResponse* pResp = resp.get();
     // Server:
-    static char s_Server[64] = {'\0'};
-    if (s_Server[0] == '\0') {
-        snprintf(s_Server, sizeof(s_Server), "httpd/%s", hv_version());
-    }
-    pResp->headers["Server"] = s_Server;
+    pResp->headers["Server"] = "libhv/" HV_VERSION_STRING;
 
     // Connection:
     pResp->headers["Connection"] = keepalive ? "keep-alive" : "close";
@@ -588,7 +601,7 @@ int HttpHandler::defaultStaticHandler() {
     }
     else {
         // Not Modified
-        auto iter = req->headers.find("if-not-match");
+        auto iter = req->headers.find("if-none-match");
         if (iter != req->headers.end() &&
             strcmp(iter->second.c_str(), fc->etag) == 0) {
             fc = NULL;
@@ -1082,7 +1095,7 @@ int HttpHandler::sendProxyRequest() {
     req->headers["Connection"] = keepalive ? "keep-alive" : "close";
     req->headers["X-Real-IP"] = ip;
     // NOTE: send head + received body
-    std::string msg = req->Dump(true, true);
+    std::string msg = req->Dump(true, false) + req->body;
     // printf("%s\n", msg.c_str());
     req->Reset();
 

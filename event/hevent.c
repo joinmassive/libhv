@@ -191,7 +191,8 @@ void hio_done(hio_t* io) {
 }
 
 void hio_free(hio_t* io) {
-    if (io == NULL) return;
+    if (io == NULL || io->destroy) return;
+    io->destroy = 1;
     hio_close(io);
     hrecursive_mutex_destroy(&io->write_mutex);
     HV_FREE(io->localaddr);
@@ -399,7 +400,7 @@ void hio_read_cb(hio_t* io, void* buf, int len) {
         hio_read_stop(io);
     }
 
-    if (io->read_cb) {
+    if (io->read_cb && !io->closed) {
         // printd("read_cb------\n");
         io->read_cb(io, buf, len);
         // printd("read_cb======\n");
@@ -417,7 +418,7 @@ void hio_read_cb(hio_t* io, void* buf, int len) {
 }
 
 void hio_write_cb(hio_t* io, const void* buf, int len) {
-    if (io->write_cb) {
+    if (io->write_cb  && !io->closed) {
         // printd("write_cb------\n");
         io->write_cb(io, buf, len);
         // printd("write_cb======\n");

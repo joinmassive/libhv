@@ -155,11 +155,11 @@ public:
             }
         };
         channel->onclose = [this]() {
+            bool reconnect = reconn_setting != NULL;
             if (onConnection) {
                 onConnection(channel);
             }
-            // reconnect
-            if (reconn_setting) {
+            if (reconnect) {
                 startReconnect();
             }
         };
