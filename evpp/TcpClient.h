@@ -21,6 +21,7 @@ public:
         connect_timeout = HIO_DEFAULT_CONNECT_TIMEOUT;
         tls = false;
         tls_setting = NULL;
+        delegate_reconn_reset = false;
         reconn_setting = NULL;
         unpack_setting = NULL;
     }
@@ -135,12 +136,12 @@ public:
             if (unpack_setting) {
                 channel->setUnpack(unpack_setting);
             }
+            if (!delegate_reconn_reset && reconn_setting) {
+                reconn_setting_reset(reconn_setting);
+            }
             channel->startRead();
             if (onConnection) {
                 onConnection(channel);
-            }
-            if (reconn_setting) {
-                reconn_setting_reset(reconn_setting);
             }
         };
         channel->onread = [this](Buffer* buf) {
@@ -169,6 +170,8 @@ public:
         if (!reconn_setting) return -1;
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
+        // Add a random delay between 1s and 10s to avoid many clients reconnecting at the same time.
+        delay += rand() % 9000 + 1000;
         hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
         loop_->setTimeout(delay, [this](TimerID timerID){
             startConnect();
@@ -248,6 +251,7 @@ public:
     int                     connect_timeout;
     bool                    tls;
     hssl_ctx_opt_t*         tls_setting;
+    bool                    delegate_reconn_reset;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;
 
