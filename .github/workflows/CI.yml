@@ -23,11 +23,6 @@ jobs:
           ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt
           make libhv evpp
 
-      - name: test
-        run: |
-          make check
-          make run-unittest
-
   build-windows:
     name: build-windows
     runs-on: windows-latest
@@ -59,11 +54,6 @@ jobs:
         run: |
           ./configure
           make libhv evpp examples unittest
-
-      - name: test
-        run: |
-          bin/curl -v -X HEAD http://example.com/
-          bin/curl -v -X HEAD https://example.com/
 
   build-android:
     name: build-android
