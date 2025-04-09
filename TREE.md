@@ -5,7 +5,6 @@
 ├── base        libhv基础设施，如常用宏定义、数据结构、日期时间、线程、进程、日志、套接字
 ├── bin         可执行文件安装目录
 ├── build       cmake默认构建目录
-├── cert        SSL证书存放目录
 ├── cmake       cmake脚本存放目录
 ├── cpputil     libhv工具类，如字符串、文件、路径、线程池、json解析、ini解析
 ├── docs        文档存放目录
